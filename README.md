@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Toxic
 
-## Getting Started
+Next.js 16 app with Supabase Auth, Supabase Postgres (via Prisma), and route-group marketing vs app chrome.
 
-First, run the development server:
+## Prerequisites
+
+- Node 20+
+- Supabase project (Auth + Postgres connection strings)
+
+## Local setup
 
 ```bash
+cd toxic   # app root (this folder if your repo nests `toxic/toxic`)
+npm install
+cp .env.example .env.local
+# Fill DATABASE_URL, DIRECT_URL, NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+npx prisma generate
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Auth
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Browser auth uses **`lib/supabase/browser.ts`** (`signInWithPassword` / `signUp`).
+- Server sync uses **`finalizeAuthSession`** in `app/auth/actions.ts` and **`lib/auth/sync-user.ts`**.
+- Details: **`docs/AUTH_FOUNDATION.md`**.
 
-## Learn More
+## Database
 
-To learn more about Next.js, take a look at the following resources:
+- Schema is **`prisma/schema.prisma`** (introspected from the shared DB).
+- **`prisma migrate dev`** should be coordinated when migration history matches your branch; until then use **`npx prisma db push`** only with team agreement.
+- Creating posts requires at least one **`Category`** row and a valid **`City.slug`**.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Scripts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Dev server |
+| `npm run build` | Production build |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm test` | Stub (see **`docs/VERIFICATION.md`**) |
+| `npm run prisma:generate` | Prisma Client |
+| `npm run prisma:migrate:dev` | Migrations (when baselined) |
 
-## Deploy on Vercel
+## Documentation index
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **`docs/IMPLEMENTATION_NOTE.md`** — pre-build inspection summary  
+- **`docs/AUTH_FOUNDATION.md`** — auth modules & sync  
+- **`docs/DESIGN_SHELL.md`** — layouts & navigation  
+- **`docs/DATA_MODEL.md`** — Prisma / env strategy  
+- **`docs/FEED_CREATE_FLOW.md`** — posts & feeds  
+- **`docs/PROFILE_CITY_PAGES.md`** — profile & city  
+- **`docs/ADMIN_MODERATION.md`** — roles & moderation  
+- **`docs/CROSS_CUTTING.md`** — middleware/proxy, CI  
+- **`docs/VERIFICATION.md`** — manual + command checks  
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deploy
+
+Configure the same environment variables on your host (Vercel, etc.). Never expose **`SUPABASE_SERVICE_ROLE_KEY`** or **`DATABASE_URL`** to the client. Use **`NEXT_PUBLIC_*`** only for public Supabase URL + anon key.

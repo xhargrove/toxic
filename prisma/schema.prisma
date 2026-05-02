@@ -9,9 +9,266 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  username  String?  @unique
+  id                                                  String             @id @default(cuid())
+  /// Supabase Auth `auth.users.id`; DB column `authUserId` (legacy name)
+  supabaseUserId                                      String?            @unique @map("authUserId")
+  email                                               String             @unique
+  username                                            String             @unique
+  createdAt                                           DateTime           @default(now())
+  updatedAt                                           DateTime           @updatedAt
+  avatarUrl                                           String?
+  bio                                                 String?
+  displayName                                         String
+  homeCityId                                          String?
+  role                                                UserRole           @default(USER)
+  Comment                                             Comment[]
+  ModerationAction_ModerationAction_moderatorIdToUser ModerationAction[] @relation("ModerationAction_moderatorIdToUser")
+  ModerationAction_ModerationAction_userIdToUser      ModerationAction[] @relation("ModerationAction_userIdToUser")
+  Post                                                Post[]
+  Reaction                                            Reaction[]
+  Report_Report_reporterIdToUser                      Report[]           @relation("Report_reporterIdToUser")
+  Report_Report_reviewedByIdToUser                    Report[]           @relation("Report_reviewedByIdToUser")
+  ShareEvent                                          ShareEvent[]
+  City                                                City?              @relation(fields: [homeCityId], references: [id])
+  Vote                                                Vote[]
+
+  @@index([homeCityId])
+}
+
+model Category {
+  id          String  @id
+  name        String
+  slug        String  @unique
+  description String?
+  isActive    Boolean @default(true)
+  Post        Post[]
+}
+
+model City {
+  id            String          @id
+  name          String
+  slug          String          @unique
+  state         String
+  country       String
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  DailyQuestion DailyQuestion[]
+  Post          Post[]
+  User          User[]
+}
+
+model Comment {
+  id               String             @id
+  postId           String
+  authorId         String
+  parentCommentId  String?
+  body             String
+  isAnonymous      Boolean            @default(false)
+  status           ContentStatus      @default(ACTIVE)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime
+  User             User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  Comment          Comment?           @relation("CommentToComment", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  other_Comment    Comment[]          @relation("CommentToComment")
+  Post             Post               @relation(fields: [postId], references: [id], onDelete: Cascade)
+  ModerationAction ModerationAction[]
+  Report           Report[]
+
+  @@index([authorId, createdAt])
+  @@index([parentCommentId, createdAt])
+  @@index([postId, status, createdAt])
+}
+
+model DailyQuestion {
+  id          String              @id
+  cityId      String?
+  question    String
+  description String?
+  status      DailyQuestionStatus @default(DRAFT)
+  startsAt    DateTime
+  endsAt      DateTime
+  createdAt   DateTime            @default(now())
+  City        City?               @relation(fields: [cityId], references: [id])
+
+  @@index([cityId, status, startsAt])
+  @@index([status, startsAt, endsAt])
+}
+
+model ModerationAction {
+  id                                      String               @id
+  moderatorId                             String
+  postId                                  String?
+  commentId                               String?
+  userId                                  String?
+  actionType                              ModerationActionType
+  reason                                  String
+  createdAt                               DateTime             @default(now())
+  Comment                                 Comment?             @relation(fields: [commentId], references: [id])
+  User_ModerationAction_moderatorIdToUser User                 @relation("ModerationAction_moderatorIdToUser", fields: [moderatorId], references: [id], onDelete: Cascade)
+  Post                                    Post?                @relation(fields: [postId], references: [id])
+  User_ModerationAction_userIdToUser      User?                @relation("ModerationAction_userIdToUser", fields: [userId], references: [id])
+
+  @@index([actionType, createdAt])
+  @@index([commentId])
+  @@index([moderatorId, createdAt])
+  @@index([postId])
+  @@index([userId])
+}
+
+model Post {
+  id               String             @id
+  authorId         String
+  cityId           String
+  categoryId       String
+  title            String
+  body             String
+  postType         PostType
+  visibility       Visibility         @default(PUBLIC)
+  isAnonymous      Boolean            @default(false)
+  status           ContentStatus      @default(ACTIVE)
+  capCount         Int                @default(0)
+  factsCount       Int                @default(0)
+  commentCount     Int                @default(0)
+  reactionCount    Int                @default(0)
+  shareCount       Int                @default(0)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime
+  Comment          Comment[]
+  ModerationAction ModerationAction[]
+  User             User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  Category         Category           @relation(fields: [categoryId], references: [id])
+  City             City               @relation(fields: [cityId], references: [id])
+  Reaction         Reaction[]
+  Report           Report[]
+  ShareEvent       ShareEvent[]
+  Vote             Vote[]
+
+  @@index([authorId, createdAt])
+  @@index([categoryId, createdAt])
+  @@index([cityId, status, visibility, createdAt])
+  @@index([postType, status, createdAt])
+}
+
+model Reaction {
+  id           String       @id
+  postId       String
+  userId       String
+  reactionType ReactionType
+  createdAt    DateTime     @default(now())
+  Post         Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  User         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId, reactionType])
+  @@index([postId, reactionType])
+}
+
+model Report {
+  id                             String       @id
+  reporterId                     String
+  postId                         String?
+  commentId                      String?
+  reason                         String
+  details                        String?
+  status                         ReportStatus @default(OPEN)
+  createdAt                      DateTime     @default(now())
+  reviewedAt                     DateTime?
+  reviewedById                   String?
+  Comment                        Comment?     @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  Post                           Post?        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  User_Report_reporterIdToUser   User         @relation("Report_reporterIdToUser", fields: [reporterId], references: [id], onDelete: Cascade)
+  User_Report_reviewedByIdToUser User?        @relation("Report_reviewedByIdToUser", fields: [reviewedById], references: [id])
+
+  @@index([commentId])
+  @@index([postId])
+  @@index([reporterId, createdAt])
+  @@index([reviewedById])
+  @@index([status, createdAt])
+}
+
+model ShareEvent {
+  id        String   @id
+  postId    String
+  userId    String?
+  platform  String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  Post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  User      User?    @relation(fields: [userId], references: [id])
+
+  @@index([postId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model Vote {
+  id        String   @id
+  postId    String
+  userId    String
+  voteType  VoteType
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  Post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([postId, voteType])
+}
+
+enum ContentStatus {
+  ACTIVE
+  UNDER_REVIEW
+  REMOVED
+}
+
+enum DailyQuestionStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum ModerationActionType {
+  REMOVE_POST
+  RESTORE_POST
+  REMOVE_COMMENT
+  RESTORE_COMMENT
+  WARN_USER
+  BAN_USER
+}
+
+enum PostType {
+  TEA_DROP
+  DAILY_QUESTION_RESPONSE
+  DEBATE
+  CONFESSION
+  WARNING
+  OPINION
+}
+
+enum ReactionType {
+  LAUGH
+  SHOCKED
+  FIRE
+  EYES
+  WARNING
+}
+
+enum ReportStatus {
+  OPEN
+  REVIEWED
+  DISMISSED
+  ACTION_TAKEN
+}
+
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+}
+
+enum Visibility {
+  PUBLIC
+  CITY_ONLY
+}
+
+enum VoteType {
+  CAP
+  FACTS
 }

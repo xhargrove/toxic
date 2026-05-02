@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
+import { sanitizeNextPath } from "@/lib/auth/redirect-path";
 import { env } from "@/lib/env";
 
 const PROTECTED_PATHS = [
@@ -59,10 +60,12 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && AUTH_PAGES.some((path) => pathStartsWith(pathname, path))) {
-    const homeUrl = request.nextUrl.clone();
-    homeUrl.pathname = "/home";
+    const targetPath = sanitizeNextPath(request.nextUrl.searchParams.get("next"));
+    const dest = request.nextUrl.clone();
+    dest.pathname = targetPath;
+    dest.search = "";
 
-    return NextResponse.redirect(homeUrl);
+    return NextResponse.redirect(dest);
   }
 
   return response;

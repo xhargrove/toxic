@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "node -e \"console.log('No automated tests yet — see docs/VERIFICATION.md'); process.exit(0)\"",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:studio": "prisma studio"
@@ -23,6 +25,7 @@
     "prisma": "^6.19.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "server-only": "^0.0.1",
     "shadcn": "^4.5.0",
     "tailwind-merge": "^3.5.0",
     "tw-animate-css": "^1.4.0",

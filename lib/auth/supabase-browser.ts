@@ -1,10 +1,2 @@
-import { createBrowserClient } from "@supabase/ssr";
-
-import { env } from "@/lib/env";
-
-export function createSupabaseBrowserClient() {
-  return createBrowserClient(
-    env.NEXT_PUBLIC_SUPABASE_URL,
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
-}
+/** Re-export — canonical implementation is `@/lib/supabase/browser`. */
+export { createSupabaseBrowserClient } from "@/lib/supabase/browser";
