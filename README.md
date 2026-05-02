@@ -13,12 +13,31 @@ Next.js 16 app with Supabase Auth, Supabase Postgres (via Prisma), and route-gro
 cd toxic   # app root (this folder if your repo nests `toxic/toxic`)
 npm install
 cp .env.example .env.local
-# Fill DATABASE_URL, DIRECT_URL, NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
-npx prisma generate
+# Fill DATABASE_URL, NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY (optional: DIRECT_URL for app-only use — see docs/DATA_MODEL.md)
+npm run prisma:generate
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+### Prisma CLI and `.env.local`
+
+**Do not run** `npx prisma …` by itself if your database URL only lives in **`.env.local`**. The Prisma CLI only auto-loads **`.env`**, not `.env.local`, so you will see **`P1012` / `Environment variable not found: DATABASE_URL`**.
+
+**Use the npm scripts** (they run `scripts/prisma-run.mjs`, which applies `.env.local` when it exists):
+
+```bash
+npm run prisma:validate
+npm run prisma:generate
+```
+
+Or, if you must use the Prisma binary directly:
+
+```bash
+node --env-file=.env.local ./node_modules/prisma/build/index.js validate
+```
+
+Work from the **app root** (the folder that contains `package.json` and `prisma/`), e.g. `toxic/toxic` if the repo is nested.
 
 ## Auth
 
@@ -29,7 +48,7 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Database
 
 - Schema is **`prisma/schema.prisma`** (introspected from the shared DB).
-- **`prisma migrate dev`** should be coordinated when migration history matches your branch; until then use **`npx prisma db push`** only with team agreement.
+- **`npm run prisma:migrate:dev`** should be coordinated when migration history matches your branch; until then use **`npm run prisma:db:push`** only with team agreement.
 - Creating posts requires at least one **`Category`** row and a valid **`City.slug`**.
 
 ## Scripts
@@ -41,8 +60,10 @@ Open [http://localhost:3000](http://localhost:3000).
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Stub (see **`docs/VERIFICATION.md`**) |
+| `npm run prisma:validate` | Validate schema (loads `.env.local` via `scripts/prisma-run.mjs`) |
 | `npm run prisma:generate` | Prisma Client |
 | `npm run prisma:migrate:dev` | Migrations (when baselined) |
+| `npm run prisma:db:push` | `db push` (loads `.env.local` when present) |
 
 ## Documentation index
 

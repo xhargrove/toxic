@@ -24,7 +24,7 @@ Remote migration history previously drifted from this repo. **`prisma db push`**
 
 ## Env
 
-- **`DATABASE_URL`** — pooled (often `?pgbouncer=true`).
-- **`DIRECT_URL`** — migrations / long sessions — point at Supabase docs’ **direct** connection when using `migrate`.
+- **`DATABASE_URL`** — required by Prisma. For Supabase, use the **pooler** URL for app/runtime; for **`prisma migrate`** against PgBouncer, Supabase often recommends using the **direct** (non-pooler) connection string **as `DATABASE_URL` for that command only**, or session mode per Supabase docs.
+- **`DIRECT_URL`** — optional in **`lib/env.ts`** for future app use; **not** wired in `schema.prisma` so Prisma CLI never fails when it is unset.
 
 See **`.env.example`**.

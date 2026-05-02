@@ -9,11 +9,11 @@ npm run test
 npm run build
 ```
 
-Prisma when schema changes:
+Prisma when schema changes (loads **`.env.local`** automatically via `scripts/prisma-run.mjs`; plain `npx prisma` only reads **`.env`**):
 
 ```bash
-npx prisma validate
-npx prisma generate
+npm run prisma:validate
+npm run prisma:generate
 ```
 
 ## Manual smoke tests

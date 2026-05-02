@@ -35,7 +35,7 @@ Validated at startup in `lib/env.ts` with Zod:
 | Variable | Purpose |
 |----------|---------|
 | `DATABASE_URL` | Pooled Postgres URL (e.g. Supabase pooler + `pgbouncer=true`) |
-| `DIRECT_URL` | Optional but recommended for Prisma migrations / non-pooled access |
+| `DIRECT_URL` | Optional (`lib/env.ts` only). Prisma schema uses **`DATABASE_URL` only** — use a direct Postgres URL for `DATABASE_URL` when running migrations if the pooler URL fails. |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only; used for admin/service operations |

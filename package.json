@@ -9,9 +9,11 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "node -e \"console.log('No automated tests yet — see docs/VERIFICATION.md'); process.exit(0)\"",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate:dev": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:generate": "node scripts/prisma-run.mjs generate",
+    "prisma:validate": "node scripts/prisma-run.mjs validate",
+    "prisma:migrate:dev": "node scripts/prisma-run.mjs migrate dev",
+    "prisma:studio": "node scripts/prisma-run.mjs studio",
+    "prisma:db:push": "node scripts/prisma-run.mjs db push"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
