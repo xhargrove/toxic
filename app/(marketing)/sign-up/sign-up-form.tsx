@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 
-import { finalizeAuthSession } from "@/app/auth/actions";
+import { checkUsernameAvailability, finalizeAuthSession } from "@/app/auth/actions";
 import { Button } from "@/components/ui/button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -29,6 +29,13 @@ export function SignUpForm({ defaultNext }: { defaultNext?: string }) {
 
     try {
       const supabase = createSupabaseBrowserClient();
+      const availability = await checkUsernameAvailability(username);
+      if (!availability.available) {
+        setError(availability.error);
+        setPending(false);
+        return;
+      }
+
       const { data, error: signErr } = await supabase.auth.signUp({
         email,
         password,
@@ -46,6 +53,7 @@ export function SignUpForm({ defaultNext }: { defaultNext?: string }) {
       if (data.session && data.user) {
         const fin = await finalizeAuthSession(defaultNext ?? "");
         if (fin?.error) {
+          await supabase.auth.signOut();
           setError(fin.error);
           setPending(false);
         }

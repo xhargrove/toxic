@@ -53,12 +53,6 @@ export async function syncUserFromSupabase(authUser: SupabaseAuthUser): Promise<
       where: { id: existingByAuth.id },
       data: {
         email,
-        ...(metaUsername
-          ? {
-              username: metaUsername,
-              displayName: metaUsername,
-            }
-          : {}),
       },
     });
     return;
@@ -74,12 +68,6 @@ export async function syncUserFromSupabase(authUser: SupabaseAuthUser): Promise<
       data: {
         supabaseUserId: authUser.id,
         email,
-        ...(metaUsername
-          ? {
-              username: metaUsername,
-              displayName: metaUsername,
-            }
-          : {}),
       },
     });
     return;

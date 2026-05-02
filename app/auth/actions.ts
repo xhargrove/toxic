@@ -5,7 +5,9 @@ import { Prisma } from "@prisma/client";
 
 import { sanitizeNextPath } from "@/lib/auth/redirect-path";
 import { syncUserFromSupabase } from "@/lib/auth/sync-user";
+import { prisma } from "@/lib/db/prisma";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { usernameSchema } from "@/lib/validation/auth";
 
 export type AuthFinalizeState = { error?: string } | null;
 
@@ -41,4 +43,27 @@ export async function finalizeAuthSession(nextPath: string): Promise<AuthFinaliz
   }
 
   redirect(next);
+}
+
+export type UsernameAvailabilityState = { available: true } | { available: false; error: string };
+
+export async function checkUsernameAvailability(username: string): Promise<UsernameAvailabilityState> {
+  const parsed = usernameSchema.safeParse(username);
+  if (!parsed.success) {
+    return {
+      available: false,
+      error: parsed.error.issues[0]?.message ?? "Choose a valid username.",
+    };
+  }
+
+  const existing = await prisma.user.findUnique({
+    where: { username: parsed.data },
+    select: { id: true },
+  });
+
+  if (existing) {
+    return { available: false, error: "That username is already taken." };
+  }
+
+  return { available: true };
 }
