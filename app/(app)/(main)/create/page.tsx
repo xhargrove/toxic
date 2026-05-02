@@ -6,7 +6,8 @@ export default function CreatePage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Create post</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Uses your Prisma user as author and an existing city slug.
+          Requires an active category and city (run <code className="text-foreground">npm run prisma:seed</code> — then use city slug{" "}
+          <code className="text-foreground">demo-city</code>).
         </p>
       </div>
       <CreatePostForm />

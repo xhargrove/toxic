@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 export type ShellUser = {
   email: string;
   username: string | null;
+  displayName: string | null;
   avatarUrl: string | null;
 };
 
@@ -29,7 +30,7 @@ export async function getShellUser(): Promise<ShellUser | null> {
 
   const row = await prisma.user.findUnique({
     where: { supabaseUserId: authUser.id },
-    select: { email: true, username: true, avatarUrl: true },
+    select: { email: true, username: true, displayName: true, avatarUrl: true },
   });
 
   if (row) {
@@ -39,6 +40,7 @@ export async function getShellUser(): Promise<ShellUser | null> {
   return {
     email: authUser.email,
     username: null,
+    displayName: null,
     avatarUrl: null,
   };
 }

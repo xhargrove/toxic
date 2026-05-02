@@ -2,7 +2,8 @@
 
 ## Server Actions
 
-- **`lib/posts/actions.ts`** — **`createPostAction`** uses **`requireDbUser('/create')`**, **`createPostSchema`**, creates **`Post`** with **`randomUUID()`** id and **`updatedAt: new Date()`**.
+- **`lib/posts/actions.ts`** — **`createPostAction`** uses **`requireCompleteProfile('/create')`** (onboarding + DB user), **`createPostSchema`**, creates **`Post`** with **`randomUUID()`** id and **`updatedAt: new Date()`**.
+- Requires a default active **`Category`** (from **`npm run prisma:seed`**) and a **`City`** row matching **`citySlug`** (seed uses **`demo-city`**).
 
 ## Queries
 

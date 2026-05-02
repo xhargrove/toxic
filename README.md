@@ -41,15 +41,15 @@ Work from the **app root** (the folder that contains `package.json` and `prisma/
 
 ## Auth
 
-- Browser auth uses **`lib/supabase/browser.ts`** (`signInWithPassword` / `signUp`).
-- Server sync uses **`finalizeAuthSession`** in `app/auth/actions.ts` and **`lib/auth/sync-user.ts`**.
+- Email/password uses Server Actions **`signInAction`** / **`signUpAction`** (`app/auth/actions.ts`) plus **`lib/auth/sync-user.ts`**. **`lib/supabase/browser.ts`** is for client-only flows (e.g. sign-out).
 - Details: **`docs/AUTH_FOUNDATION.md`**.
 
 ## Database
 
 - Schema is **`prisma/schema.prisma`** (introspected from the shared DB).
+- Apply migrations (includes **`User.onboardingCompletedAt`** for onboarding) via **`npm run prisma:migrate:dev`** or your deployment pipeline; see **`docs/ONBOARDING.md`**.
 - **`npm run prisma:migrate:dev`** should be coordinated when migration history matches your branch; until then use **`npm run prisma:db:push`** only with team agreement.
-- Creating posts requires at least one **`Category`** row and a valid **`City.slug`**.
+- **Seed** default Category + City for local/dev: **`npm run prisma:seed`** (details: **`docs/SEED.md`**). Then on **`/create`** use city slug **`demo-city`**.
 
 ## Scripts
 
@@ -64,13 +64,17 @@ Work from the **app root** (the folder that contains `package.json` and `prisma/
 | `npm run prisma:generate` | Prisma Client |
 | `npm run prisma:migrate:dev` | Migrations (when baselined) |
 | `npm run prisma:db:push` | `db push` (loads `.env.local` when present) |
+| `npm run prisma:seed` | Seed default Category (`general`) + City (`demo-city`) |
+| `npm run verify:seed` | Confirm seed data exists for `/create` |
 
 ## Documentation index
 
 - **`docs/IMPLEMENTATION_NOTE.md`** — pre-build inspection summary  
 - **`docs/AUTH_FOUNDATION.md`** — auth modules & sync  
+- **`docs/ONBOARDING.md`** — profile completion, `/onboarding`, redirect rules  
 - **`docs/DESIGN_SHELL.md`** — layouts & navigation  
 - **`docs/DATA_MODEL.md`** — Prisma / env strategy  
+- **`docs/SEED.md`** — default Category/City seed  
 - **`docs/FEED_CREATE_FLOW.md`** — posts & feeds  
 - **`docs/PROFILE_CITY_PAGES.md`** — profile & city  
 - **`docs/ADMIN_MODERATION.md`** — roles & moderation  

@@ -18,6 +18,8 @@ model User {
   avatarUrl                                           String?
   bio                                                 String?
   displayName                                         String
+  /// Set when the user finishes the in-app onboarding form; null means redirect to `/onboarding`.
+  onboardingCompletedAt                               DateTime?
   homeCityId                                          String?
   role                                                UserRole           @default(USER)
   Comment                                             Comment[]

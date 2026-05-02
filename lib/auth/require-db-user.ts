@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import type { User } from "@prisma/client";
 import { sanitizeNextPath } from "@/lib/auth/redirect-path";
 import { syncUserFromSupabase } from "@/lib/auth/sync-user";
-import { prisma } from "@/lib/db/prisma";
+import { findAppUserBySupabaseId } from "@/lib/db/app-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -20,9 +20,7 @@ export async function requireDbUser(returnPath: string): Promise<User> {
     redirect(`/login?next=${encodeURIComponent(next)}`);
   }
 
-  const dbUser = await prisma.user.findFirst({
-    where: { supabaseUserId: authUser.id },
-  });
+  const dbUser = await findAppUserBySupabaseId(authUser.id);
 
   if (dbUser) {
     return dbUser;
@@ -35,9 +33,7 @@ export async function requireDbUser(returnPath: string): Promise<User> {
     redirect(`/login?next=${encodeURIComponent(next)}`);
   }
 
-  const repairedDbUser = await prisma.user.findFirst({
-    where: { supabaseUserId: authUser.id },
-  });
+  const repairedDbUser = await findAppUserBySupabaseId(authUser.id);
 
   if (!repairedDbUser) {
     await supabase.auth.signOut();

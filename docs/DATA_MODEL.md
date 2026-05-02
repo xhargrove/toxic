@@ -8,6 +8,7 @@ The **`prisma/schema.prisma`** file reflects the **live Supabase Postgres** sche
 
 - **`User.supabaseUserId`** maps to DB column **`authUserId`** (`@map("authUserId")`).
 - Unique **`username`**, unique **`email`**, **`UserRole`** enum for admin/mod.
+- **`User.onboardingCompletedAt`** — null until onboarding form submission; gates **`(main)`** routes (see **`docs/ONBOARDING.md`**).
 
 ## Posts & feeds
 
@@ -17,6 +18,10 @@ The **`prisma/schema.prisma`** file reflects the **live Supabase Postgres** sche
 ## URLs vs FKs
 
 - UI/API validation uses **`citySlug`** (`createPostSchema`); server resolves **`City`** by **`slug`** → **`cityId`**.
+
+## Seed data
+
+Run **`npm run prisma:seed`** to upsert a default active **Category** (`slug: general`) and **City** (`slug: demo-city`). See **`docs/SEED.md`**.
 
 ## Migrations
 

@@ -11,16 +11,17 @@
 
 Thin re-exports remain under `lib/auth/supabase-*.ts` for backwards compatibility but **must not duplicate logic**.
 
-## Browser vs server flows
+## Email/password flows
 
-1. **Login / sign-up**: Client forms call **`signInWithPassword`** / **`signUp`** on the **browser** client, then **`finalizeAuthSession(next)`** (Server Action) reads the session from cookies, **`syncUserFromSupabase`**, and **`redirect()`**.
-2. **`finalizeAuthSession`** is the single server choke-point for Prisma sync after auth.
+1. **Login / sign-up** use Server Actions **`signInAction`** / **`signUpAction`** with **`createSupabaseServerClient()`** so Supabase session cookies are set on the server response (avoids a race where **browser** auth + **`finalizeAuthSession`** ran before cookies reached the server).
+2. **`finalizeAuthSession`** remains available for flows where the session already exists server-side (e.g. future OAuth callback handling).
 3. **Sign-out**: **NavigationShell** uses **browser** `signOut({ scope: 'global' })** then `router.replace('/')` + `router.refresh()`.
 
 ## Guards
 
 - **`requireUser(returnPath)`** (`lib/auth/require-user.ts`) — redirects to `/login?next=`.
 - **`requireDbUser(returnPath)`** — requires a linked Prisma `User` row (`supabaseUserId`).
+- **`requireCompleteProfile(returnPath)`** (`lib/auth/onboarding.ts`) — requires **`User.onboardingCompletedAt`**; redirects to **`/onboarding`** if missing (see **`docs/ONBOARDING.md`**).
 - **`requireAdmin(returnPath)`** — Prisma `User.role` is **`ADMIN`** or **`MODERATOR`**.
 
 ## Redirect safety

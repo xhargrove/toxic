@@ -1,5 +1,10 @@
 import type { User as SupabaseAuthUser } from "@supabase/supabase-js";
 
+import {
+  findAppUserByEmail,
+  findAppUserBySupabaseId,
+  findAppUserByUsername,
+} from "@/lib/db/app-user";
 import { prisma } from "@/lib/db/prisma";
 
 function usernameFromMetadata(metadata: SupabaseAuthUser["user_metadata"]): string | null {
@@ -21,7 +26,7 @@ function slugFromEmail(email: string): string {
 async function ensureUniqueUsername(preferred: string, email: string): Promise<string> {
   let candidate = preferred.slice(0, 24);
   for (let i = 0; i < 12; i++) {
-    const taken = await prisma.user.findUnique({ where: { username: candidate } });
+    const taken = await findAppUserByUsername(candidate);
     if (!taken) {
       return candidate;
     }
@@ -44,9 +49,7 @@ export async function syncUserFromSupabase(authUser: SupabaseAuthUser): Promise<
 
   const metaUsername = usernameFromMetadata(authUser.user_metadata);
 
-  const existingByAuth = await prisma.user.findFirst({
-    where: { supabaseUserId: authUser.id },
-  });
+  const existingByAuth = await findAppUserBySupabaseId(authUser.id);
 
   if (existingByAuth) {
     await prisma.user.update({
@@ -54,13 +57,12 @@ export async function syncUserFromSupabase(authUser: SupabaseAuthUser): Promise<
       data: {
         email,
       },
+      select: { id: true },
     });
     return;
   }
 
-  const existingByEmail = await prisma.user.findUnique({
-    where: { email },
-  });
+  const existingByEmail = await findAppUserByEmail(email);
 
   if (existingByEmail) {
     await prisma.user.update({
@@ -69,6 +71,7 @@ export async function syncUserFromSupabase(authUser: SupabaseAuthUser): Promise<
         supabaseUserId: authUser.id,
         email,
       },
+      select: { id: true },
     });
     return;
   }
@@ -79,6 +82,7 @@ export async function syncUserFromSupabase(authUser: SupabaseAuthUser): Promise<
   );
   const displayName = metaUsername ?? username;
 
+  // Omit `onboardingCompletedAt` so INSERT works before the column is migrated (column defaults to NULL once added).
   await prisma.user.create({
     data: {
       supabaseUserId: authUser.id,

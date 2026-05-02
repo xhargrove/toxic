@@ -35,7 +35,7 @@ export function NavigationShell({
     router.refresh();
   }
 
-  const label = user?.username ?? user?.email ?? "";
+  const label = user?.displayName?.trim() || user?.username || user?.email || "";
 
   return (
     <div className="min-h-screen">
@@ -79,7 +79,7 @@ export function NavigationShell({
                     <img src={user.avatarUrl} alt="" className="size-full object-cover" />
                   ) : (
                     <span className="flex size-full items-center justify-center text-xs font-medium">
-                      {(user.username ?? user.email).slice(0, 2).toUpperCase()}
+                      {(user.displayName?.trim() || user.username || user.email).slice(0, 2).toUpperCase()}
                     </span>
                   )}
                 </Link>

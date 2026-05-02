@@ -5,13 +5,20 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { ContentStatus, PostType, Visibility } from "@prisma/client";
 
-import { requireDbUser } from "@/lib/auth/require-db-user";
+import { requireCompleteProfile } from "@/lib/auth/onboarding";
 import { prisma } from "@/lib/db/prisma";
 import { createPostSchema } from "@/lib/validation/post";
 
 export type CreatePostState = { error?: string; fieldErrors?: Record<string, string[] | undefined> } | null;
 
 async function getDefaultCategoryId(): Promise<string> {
+  const preferred = await prisma.category.findFirst({
+    where: { isActive: true, slug: "general" },
+  });
+  if (preferred) {
+    return preferred.id;
+  }
+
   const category = await prisma.category.findFirst({
     where: { isActive: true },
     orderBy: { slug: "asc" },
@@ -25,7 +32,7 @@ async function getDefaultCategoryId(): Promise<string> {
 }
 
 export async function createPostAction(_prev: CreatePostState, formData: FormData): Promise<CreatePostState> {
-  const dbUser = await requireDbUser("/create");
+  const dbUser = await requireCompleteProfile("/create");
 
   const parsed = createPostSchema.safeParse({
     title: formData.get("title"),

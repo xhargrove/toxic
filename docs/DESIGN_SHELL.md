@@ -4,6 +4,7 @@
 
 - **`app/(marketing)/`** — Landing (`/`), **`/login`**, **`/sign-up`**. No main chrome; focused auth/marketing.
 - **`app/(app)/`** — Authenticated app surfaces with **`NavigationShell`**.
+- **`app/(app)/(main)/`** — Product routes that require completed onboarding (`requireCompleteProfile` in **`layout.tsx`**). **`/onboarding`** stays outside **`(main)`** so incomplete users are not wrapped by that gate.
 
 ## Components
 

@@ -31,7 +31,7 @@ export function CreatePostForm() {
           id="citySlug"
           name="citySlug"
           required
-          placeholder="e.g. austin-tx"
+          placeholder="demo-city"
           className={inputClass}
         />
         {state?.fieldErrors?.citySlug?.[0] ? (
