@@ -36,6 +36,22 @@ export function PostCard({
         viewer={viewer}
         variant="feed"
       />
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+        <Link
+          href={`/post/${post.id}#report`}
+          className="text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+        >
+          Report
+        </Link>
+        {!viewer ? (
+          <Link
+            href={`/login?next=${encodeURIComponent(`/post/${post.id}`)}`}
+            className="text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+          >
+            Sign in to interact
+          </Link>
+        ) : null}
+      </div>
     </li>
   );
 }

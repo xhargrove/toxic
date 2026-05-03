@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { FollowButton } from "@/components/profile/follow-button";
+import { findAppUserBySupabaseId } from "@/lib/db/app-user";
+import { getFollowCounts, isFollowing } from "@/lib/follows/queries";
+import { getOptionalAuthUser } from "@/lib/auth/session";
 import { listPostsForAuthor } from "@/lib/posts/queries";
 import { getUserProfileByUsername } from "@/lib/users/queries";
 
@@ -17,13 +21,33 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   }
 
   const posts = await listPostsForAuthor(user.id, 30);
+  const { followers, following } = await getFollowCounts(user.id);
+
+  const auth = await getOptionalAuthUser();
+  let showFollow = false;
+  let initialFollowing = false;
+  if (auth?.id) {
+    const viewer = await findAppUserBySupabaseId(auth.id);
+    if (viewer && viewer.id !== user.id) {
+      showFollow = true;
+      initialFollowing = await isFollowing(viewer.id, user.id);
+    }
+  }
 
   return (
     <section className="flex flex-col gap-8 py-12">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{user.displayName}</h1>
-        <p className="text-muted-foreground text-sm">@{user.username}</p>
-        {user.bio ? <p className="mt-3 max-w-xl text-sm">{user.bio}</p> : null}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">{user.displayName}</h1>
+          <p className="text-muted-foreground text-sm">@{user.username}</p>
+          <p className="text-muted-foreground mt-2 text-xs">
+            {followers} followers · {following} following
+          </p>
+          {user.bio ? <p className="mt-3 max-w-xl text-sm">{user.bio}</p> : null}
+        </div>
+        {showFollow ? (
+          <FollowButton followingId={user.id} username={user.username} initialFollowing={initialFollowing} />
+        ) : null}
       </div>
 
       <div>

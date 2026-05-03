@@ -1,39 +1,78 @@
 # Post interactions
 
-Comments, votes (Cap / Facts), reactions, and reporting use Prisma **`Comment`**, **`Vote`**, **`Reaction`**, and **`Report`**. All mutations run as Server Actions and call **`requireCompleteProfile(returnPath)`** so incomplete accounts are redirected to **`/onboarding`** (or unauthenticated users to **`/login`** via **`requireDbUser`**).
+Server-driven comments, Cap/Facts votes, emoji-class reactions, and reports. **No client-side counter authority**: counts come from Prisma `Post` scalars and actions refresh via **`revalidatePath`**.
 
-## Comments
+## Server actions (single implementation each)
 
-- **`lib/comments/actions.ts`** — **`createCommentAction`** validates body length, creates **`Comment`** (`ACTIVE`, top-level only), increments **`Post.commentCount`**, **`revalidatePath`** for home, trending, post detail, and city feed.
-- **`lib/comments/queries.ts`** — **`listActiveCommentsForPost`** returns **`ACTIVE`** root comments with author display fields.
-- UI: **`components/comments/comment-list.tsx`**, **`components/comments/comment-form.tsx`** on **`/post/[id]`**.
+| Action | Module | Guard |
+|--------|----------|--------|
+| **`createCommentAction`** | `lib/comments/actions.ts` | **`requireCompleteProfile`** |
+| **`setVoteAction`** | `lib/votes/actions.ts` | **`requireCompleteProfile`** |
+| **`toggleReactionAction`** | `lib/reactions/actions.ts` | **`requireCompleteProfile`** |
+| **`reportPostAction`** | `lib/reports/actions.ts` | **`requireCompleteProfile`** |
 
-## Votes (Cap / Facts)
+Unauthenticated or incomplete users are redirected (`requireDbUser` → `/login`, onboarding → `/onboarding`) before mutations run.
 
-- **`Vote`** has **`@@unique([postId, userId])`** — one vote per user per post.
-- **`lib/votes/actions.ts`** — **`setVoteAction`**: first vote increments **`Post.capCount`** or **`factsCount`**; same button again removes the vote (toggle off); switching type adjusts both counters in one transaction.
-- Feed and detail use **`components/posts/post-card-actions.tsx`** with **`VoteSubmit`** forms.
+## Models & constraints
 
-## Reactions
+| Model | Role | Duplicate prevention |
+|-------|------|----------------------|
+| **`Comment`** | Thread body; `ACTIVE` only for reads | N/A (many per post) |
+| **`Vote`** | One row per user per post | **`@@unique([postId, userId])`** |
+| **`Reaction`** | One row per `(postId, userId, reactionType)` | **`@@unique([postId, userId, reactionType])`** |
+| **`Report`** | Reporter + optional post | **DB**: partial unique indexes so only **OPEN** rows enforce uniqueness on **`(reporterId, postId)`** and **`(reporterId, commentId)`** (race-safe with **`P2002`** handling in **`reportPostAction`**). |
 
-- **`Reaction`** has **`@@unique([postId, userId, reactionType])`** — one row per type per user per post.
-- **`lib/reactions/actions.ts`** — **`toggleReactionAction`** creates or deletes the row and increments/decrements **`Post.reactionCount`**. **`P2002`** returns a friendly error if a race duplicates a reaction.
-- Feed shows three reaction types; post detail shows all **`ReactionType`** values.
+## Post eligibility (`ACTIVE` vs moderation)
 
-## Reporting
+- **Comments / votes / reactions**: **`getActivePostForMutations`** (`lib/interactions/post-for-actions.ts`) — only **`Post.status === ACTIVE`**. **`UNDER_REVIEW`** and **`REMOVED`** are rejected (no new engagement).
+- **Reports**: **`getPostTargetForReport`** — **`ACTIVE`** or **`UNDER_REVIEW`** so additional reporters can file while a post is already in review; **`REMOVED`** cannot be reported.
 
-- **`lib/reports/actions.ts`** — **`reportPostAction`** creates **`Report`** with **`status: OPEN`**. Duplicate **open** reports from the same reporter on the same post are rejected.
-- When **`OPEN`** report count for the post reaches the threshold (default **3**, override with **`REPORT_POST_REVIEW_THRESHOLD`**), the post is set to **`ContentStatus.UNDER_REVIEW`** (only if it was **`ACTIVE`**).
-- **`listHomePosts`** / **`listTrendingPosts`** / **`getPostById`** only expose **`ACTIVE` + `PUBLIC`** posts, so reviewed content disappears from public feeds until moderation restores it.
+## Post ID validation
+
+- **`parsePostIdParam`** / **`postIdSchema`** (`lib/validation/interactions.ts`) — length/charset guard before queries (rejects obvious injection/path fragments).
+
+## Counter rules (transaction-safe)
+
+- **Comments**: `$transaction`: create `Comment` + **`commentCount` += 1**.
+- **Votes**: **`voteCounterAdjustments`** (`lib/votes/vote-counter-deltas.ts`) computes **`capCount` / `factsCount`** deltas for create / toggle-off / switch; **`setVoteAction`** applies one **`Post` update** with **`increment`** deltas inside `$transaction` with vote row create/delete/update.
+- **Reactions**: `$transaction`: create/delete `Reaction` + **`reactionCount` ± 1**. **`P2002`** (race on unique) aborts the whole transaction — **no overcount**.
+- **Reports**: creating a **`Report`** does not increment content counters. **`OPEN`** reports are counted after insert for escalation only.
+
+## Report threshold
+
+- Env **`REPORT_POST_REVIEW_THRESHOLD`** (default **3**). **`shouldEscalatePostToReview`** (`lib/reports/threshold-logic.ts`): only **`ACTIVE`** posts move to **`UNDER_REVIEW`** when **`openReportCount >= threshold`**.
+- **Duplicate OPEN report** from the same user hits the partial unique index → **`P2002`** → friendly error; **open count unchanged**, threshold cannot be crossed by duplicates.
 
 ## Viewer state
 
-- **`lib/posts/viewer-state.ts`** — **`getViewerInteractionsForPosts`** batches the current user’s vote and reaction types for feed cards (highlights active controls).
+- **`getViewerInteractionsForPosts`** (`lib/posts/viewer-state.ts`) loads **`Vote`** + **`Reaction`** rows for the current user and post IDs. Invalid IDs are filtered out before querying. Logged-out callers skip DB lookups (pages pass an empty map).
 
-## Validation
+## UI wiring
 
-- **`lib/validation/interactions.ts`** — Zod schemas shared by actions.
+| Surface | Behavior |
+|---------|-----------|
+| **`components/posts/post-card.tsx`** | Feed: **`PostCardActions`** (Cap/Facts + reactions + DB counts), **Report** → **`/post/[id]#report`**, **Sign in to interact** when no viewer row |
+| **`components/posts/post-card-actions.tsx`** | Forms POST to server actions only; highlights use viewer map only |
+| **`app/(app)/(main)/post/[id]/page.tsx`** | Detail: actions + **`CommentList`** + **`CommentForm`** + **`PostReportForm`** (`id="report"` anchor) |
+| Errors | **`useActionState`** surfaces server errors; no fabricated totals |
 
-## Smoke testing
+**Public post detail**: **`getPublicPostById`** (`lib/posts/queries.ts`) returns **`PUBLIC`** posts with **`ACTIVE`** or **`UNDER_REVIEW`** (not **`REMOVED`**). **`UNDER_REVIEW`** shows a moderation banner; votes, reactions, new comments, and report UI are restricted (read-only counts). **`getPostById`** remains stricter where used internally (e.g. **`ACTIVE` + `PUBLIC`** only).
 
-See **`docs/VERIFICATION.md`**. Apply **`npm run prisma:migrate:dev`** (or equivalent) so schema matches **`prisma/schema.prisma`**.
+## Tests (unit)
+
+- **`lib/votes/vote-counter-deltas.test.ts`** — vote delta matrix.
+- **`lib/reports/threshold-logic.test.ts`** — escalation rules.
+- **`lib/validation/interactions-postid.test.ts`** — **`postId`** parsing.
+
+Run: **`npm test`** (`node --import tsx --test …`). Integration/e2e tests against a live DB are **not** in-repo.
+
+**Manual smoke log:** **`docs/POST_INTERACTIONS_SMOKE_RESULTS.md`** — operator checklist + recorded automated runs (browser smoke is filled in locally).
+
+## Known gaps / deferred
+
+- No optimistic UI; counts refresh after server revalidation.
+
+## Related: notifications & follows
+
+- **`Notification`** model + **`/notifications`** UI; author receives **`POST_UNDER_REVIEW`** when a post escalates; **`NEW_FOLLOWER`** when someone follows.
+- **`UserFollow`** + profile **Follow** button; **`requireCompleteProfile`** on follow actions.

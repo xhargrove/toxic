@@ -3,8 +3,10 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  /// Use a direct Postgres URL for migrations when `DATABASE_URL` is a pooler (e.g. Supabase :6543).
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -32,8 +34,37 @@ model User {
   ShareEvent                                          ShareEvent[]
   City                                                City?              @relation(fields: [homeCityId], references: [id])
   Vote                                                Vote[]
+  Notification                                       Notification[]
+  follows                                             UserFollow[]              @relation("UserFollowsFollower")
+  followedBy                                          UserFollow[]              @relation("UserFollowsFollowing")
 
   @@index([homeCityId])
+}
+
+model Notification {
+  id        String             @id @default(cuid())
+  userId    String
+  type      NotificationType   @default(GENERIC)
+  title     String
+  body      String?
+  linkUrl   String?
+  readAt    DateTime?
+  createdAt DateTime           @default(now())
+  User      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+}
+
+model UserFollow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  follower    User     @relation("UserFollowsFollower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("UserFollowsFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
 }
 
 model Category {
@@ -223,6 +254,12 @@ enum DailyQuestionStatus {
   DRAFT
   ACTIVE
   ARCHIVED
+}
+
+enum NotificationType {
+  NEW_FOLLOWER
+  POST_UNDER_REVIEW
+  GENERIC
 }
 
 enum ModerationActionType {

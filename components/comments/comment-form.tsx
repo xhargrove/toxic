@@ -14,8 +14,16 @@ function SubmitLabel({ idle }: { idle: string }) {
 const inputClass =
   "placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground flex min-h-[88px] w-full min-w-0 rounded-lg border border-input bg-transparent px-3 py-2 text-base shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20";
 
-export function CommentForm({ postId }: { postId: string }) {
+export function CommentForm({ postId, disabled }: { postId: string; disabled?: boolean }) {
   const [state, action] = useActionState(createCommentAction, null as CommentActionState);
+
+  if (disabled) {
+    return (
+      <p className="text-muted-foreground border-t pt-6 text-sm">
+        New comments are paused while this post is under moderation review.
+      </p>
+    );
+  }
 
   return (
     <form action={action} className="flex flex-col gap-3 border-t pt-6">

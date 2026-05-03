@@ -9,6 +9,8 @@ npm run test
 npm run build
 ```
 
+**Unit tests** (`npm test`): vote counter deltas, report escalation threshold, post-id parsing — **no DB** (see **`docs/POST_INTERACTIONS.md`**). Same commands using **`npx prisma validate`** / **`npx prisma generate`** work when **`DATABASE_URL`** is set (scripts prefer **`npm run prisma:*`** so **`.env.local`** loads).
+
 Prisma when schema changes (loads **`.env.local`** automatically via `scripts/prisma-run.mjs`; plain `npx prisma` only reads **`.env`**):
 
 ```bash

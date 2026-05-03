@@ -10,6 +10,7 @@ const PROTECTED_PATHS = [
   "/create",
   "/settings",
   "/admin",
+  "/notifications",
 ] as const;
 
 const AUTH_PAGES = ["/login", "/sign-up"] as const;

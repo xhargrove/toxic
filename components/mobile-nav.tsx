@@ -2,20 +2,26 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Flame, Home, Menu, PlusSquare, Settings, Shield, X } from "lucide-react";
+import { Bell, Flame, Home, Menu, PlusSquare, Settings, Shield, X } from "lucide-react";
 import { useState } from "react";
 
+import type { ShellUser } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/home", label: "Home", icon: Home },
   { href: "/trending", label: "Trending", icon: Flame },
   { href: "/create", label: "Create", icon: PlusSquare },
+  { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/settings", label: "Settings", icon: Settings },
   { href: "/admin", label: "Admin", icon: Shield },
 ] as const;
 
-export function MobileNav() {
+export function MobileNav({
+  unreadNotificationCount,
+}: {
+  unreadNotificationCount?: ShellUser["unreadNotificationCount"];
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -46,6 +52,10 @@ export function MobileNav() {
           >
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
+              const unread =
+                item.href === "/notifications" && (unreadNotificationCount ?? 0) > 0
+                  ? unreadNotificationCount
+                  : null;
               return (
                 <Link
                   key={item.href}
@@ -60,6 +70,11 @@ export function MobileNav() {
                 >
                   <Icon className="size-4 shrink-0" />
                   {item.label}
+                  {unread != null ? (
+                    <span className="bg-primary text-primary-foreground ml-auto min-w-[1.25rem] rounded-full px-1 text-center text-[10px] font-medium tabular-nums leading-tight">
+                      {unread > 99 ? "99+" : unread}
+                    </span>
+                  ) : null}
                 </Link>
               );
             })}

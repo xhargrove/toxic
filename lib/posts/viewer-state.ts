@@ -1,6 +1,7 @@
 import type { ReactionType, VoteType } from "@prisma/client";
 
 import { prisma } from "@/lib/db/prisma";
+import { parsePostIdParam } from "@/lib/validation/interactions";
 
 export type ViewerPostInteractions = {
   vote: VoteType | null;
@@ -16,20 +17,21 @@ export async function getViewerInteractionsForPosts(
 ): Promise<Record<string, ViewerPostInteractions>> {
   const empty = (): ViewerPostInteractions => ({ vote: null, reactions: [] });
   const map: Record<string, ViewerPostInteractions> = {};
+  const validIds = [...new Set(postIds)].filter((id) => parsePostIdParam(id) !== null);
   for (const id of postIds) {
     map[id] = empty();
   }
-  if (postIds.length === 0) {
+  if (validIds.length === 0) {
     return map;
   }
 
   const [votes, reactions] = await Promise.all([
     prisma.vote.findMany({
-      where: { userId, postId: { in: postIds } },
+      where: { userId, postId: { in: validIds } },
       select: { postId: true, voteType: true },
     }),
     prisma.reaction.findMany({
-      where: { userId, postId: { in: postIds } },
+      where: { userId, postId: { in: validIds } },
       select: { postId: true, reactionType: true },
     }),
   ]);

@@ -3,11 +3,12 @@
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 
-import { ContentStatus, Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 import { requireCompleteProfile } from "@/lib/auth/onboarding";
+import { getActivePostForMutations } from "@/lib/interactions/post-for-actions";
 import { prisma } from "@/lib/db/prisma";
-import { reactionTypeSchema } from "@/lib/validation/interactions";
+import { parsePostIdParam, reactionTypeSchema } from "@/lib/validation/interactions";
 
 export type ReactionActionState = { error?: string } | null;
 
@@ -29,9 +30,12 @@ export async function toggleReactionAction(
   _prev: ReactionActionState,
   formData: FormData
 ): Promise<ReactionActionState> {
-  const postIdRaw = formData.get("postId");
-  const postId = typeof postIdRaw === "string" ? postIdRaw : "";
-  const dbUser = await requireCompleteProfile(`/post/${postId || "unknown"}`);
+  const postId = parsePostIdParam(formData.get("postId"));
+  if (!postId) {
+    return { error: "Invalid or missing post." };
+  }
+
+  const dbUser = await requireCompleteProfile(`/post/${postId}`);
 
   const parsedType = reactionTypeSchema.safeParse(formData.get("reactionType"));
   if (!parsedType.success) {
@@ -39,16 +43,9 @@ export async function toggleReactionAction(
   }
   const reactionType = parsedType.data;
 
-  if (!postId) {
-    return { error: "Missing post." };
-  }
-
-  const post = await prisma.post.findFirst({
-    where: { id: postId, status: ContentStatus.ACTIVE },
-    select: { id: true },
-  });
+  const post = await getActivePostForMutations(postId);
   if (!post) {
-    return { error: "Post not available." };
+    return { error: "Post not available for reactions." };
   }
 
   const existing = await prisma.reaction.findFirst({

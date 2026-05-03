@@ -28,7 +28,7 @@ export function PostReportForm({ postId }: { postId: string }) {
   const [state, action] = useActionState(reportPostAction, null as ReportPostState);
 
   return (
-    <section className="border-border mt-10 rounded-lg border p-4">
+    <section id="report" className="border-border mt-10 scroll-mt-24 rounded-lg border p-4">
       <h2 className="text-lg font-semibold tracking-tight">Report this post</h2>
       <p className="text-muted-foreground mt-1 text-xs">
         Reports create a moderation ticket. Multiple open reports may move the post to review.

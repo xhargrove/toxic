@@ -6,29 +6,22 @@ import { revalidatePath } from "next/cache";
 import { ContentStatus } from "@prisma/client";
 
 import { requireCompleteProfile } from "@/lib/auth/onboarding";
+import { getActivePostForMutations } from "@/lib/interactions/post-for-actions";
 import { prisma } from "@/lib/db/prisma";
-import { commentBodySchema } from "@/lib/validation/interactions";
+import { commentBodySchema, parsePostIdParam } from "@/lib/validation/interactions";
 
 export type CommentActionState = {
   error?: string;
   fieldErrors?: { body?: string[] };
 } | null;
 
-async function assertInteractablePost(postId: string) {
-  const post = await prisma.post.findFirst({
-    where: {
-      id: postId,
-      status: ContentStatus.ACTIVE,
-    },
-    select: { id: true, City: { select: { slug: true } } },
-  });
-  return post;
-}
-
 export async function createCommentAction(_prev: CommentActionState, formData: FormData): Promise<CommentActionState> {
-  const postIdRaw = formData.get("postId");
-  const postId = typeof postIdRaw === "string" ? postIdRaw : "";
-  const dbUser = await requireCompleteProfile(`/post/${postId || "unknown"}`);
+  const postId = parsePostIdParam(formData.get("postId"));
+  if (!postId) {
+    return { error: "Invalid or missing post." };
+  }
+
+  const dbUser = await requireCompleteProfile(`/post/${postId}`);
 
   const parsed = commentBodySchema.safeParse(formData.get("body"));
   if (!parsed.success) {
@@ -37,11 +30,7 @@ export async function createCommentAction(_prev: CommentActionState, formData: F
     };
   }
 
-  if (!postId) {
-    return { error: "Missing post." };
-  }
-
-  const post = await assertInteractablePost(postId);
+  const post = await getActivePostForMutations(postId);
   if (!post) {
     return { error: "This post is not available for comments." };
   }
@@ -70,6 +59,6 @@ export async function createCommentAction(_prev: CommentActionState, formData: F
   revalidatePath("/home");
   revalidatePath("/trending");
   revalidatePath(`/post/${postId}`);
-  revalidatePath(`/city/${post.City.slug}`);
+  revalidatePath(`/city/${post.citySlug}`);
   return null;
 }

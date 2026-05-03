@@ -3,11 +3,11 @@
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 
-import { ContentStatus, VoteType } from "@prisma/client";
-
 import { requireCompleteProfile } from "@/lib/auth/onboarding";
+import { getActivePostForMutations } from "@/lib/interactions/post-for-actions";
 import { prisma } from "@/lib/db/prisma";
-import { voteTypeSchema } from "@/lib/validation/interactions";
+import { parsePostIdParam, voteTypeSchema } from "@/lib/validation/interactions";
+import { voteCounterAdjustments } from "@/lib/votes/vote-counter-deltas";
 
 export type VoteActionState = { error?: string } | null;
 
@@ -26,9 +26,12 @@ async function revalidatePostPaths(postId: string) {
 }
 
 export async function setVoteAction(_prev: VoteActionState, formData: FormData): Promise<VoteActionState> {
-  const postIdRaw = formData.get("postId");
-  const postId = typeof postIdRaw === "string" ? postIdRaw : "";
-  const dbUser = await requireCompleteProfile(`/post/${postId || "unknown"}`);
+  const postId = parsePostIdParam(formData.get("postId"));
+  if (!postId) {
+    return { error: "Invalid or missing post." };
+  }
+
+  const dbUser = await requireCompleteProfile(`/post/${postId}`);
 
   const parsedType = voteTypeSchema.safeParse(formData.get("voteType"));
   if (!parsedType.success) {
@@ -36,25 +39,19 @@ export async function setVoteAction(_prev: VoteActionState, formData: FormData):
   }
   const voteType = parsedType.data;
 
-  if (!postId) {
-    return { error: "Missing post." };
-  }
-
-  const post = await prisma.post.findFirst({
-    where: { id: postId, status: ContentStatus.ACTIVE },
-    select: { id: true },
-  });
+  const post = await getActivePostForMutations(postId);
   if (!post) {
-    return { error: "Post not available." };
+    return { error: "Post not available for voting." };
   }
 
   const existing = await prisma.vote.findUnique({
     where: { postId_userId: { postId, userId: dbUser.id } },
   });
 
+  const adj = voteCounterAdjustments(existing?.voteType ?? null, voteType);
   const now = new Date();
 
-  if (!existing) {
+  if (adj.mode === "create") {
     await prisma.$transaction([
       prisma.vote.create({
         data: {
@@ -68,48 +65,46 @@ export async function setVoteAction(_prev: VoteActionState, formData: FormData):
       prisma.post.update({
         where: { id: postId },
         data: {
-          ...(voteType === VoteType.CAP
-            ? { capCount: { increment: 1 } }
-            : { factsCount: { increment: 1 } }),
+          capCount: { increment: adj.capDelta },
+          factsCount: { increment: adj.factsDelta },
           updatedAt: now,
         },
       }),
     ]);
-    await revalidatePostPaths(postId);
-    return null;
-  }
-
-  if (existing.voteType === voteType) {
+  } else if (adj.mode === "delete") {
+    if (!existing) {
+      return { error: "Vote state out of sync. Refresh and try again." };
+    }
     await prisma.$transaction([
       prisma.vote.delete({ where: { id: existing.id } }),
       prisma.post.update({
         where: { id: postId },
         data: {
-          ...(voteType === VoteType.CAP
-            ? { capCount: { decrement: 1 } }
-            : { factsCount: { decrement: 1 } }),
+          capCount: { increment: adj.capDelta },
+          factsCount: { increment: adj.factsDelta },
           updatedAt: now,
         },
       }),
     ]);
-    await revalidatePostPaths(postId);
-    return null;
+  } else {
+    if (!existing) {
+      return { error: "Vote state out of sync. Refresh and try again." };
+    }
+    await prisma.$transaction([
+      prisma.vote.update({
+        where: { id: existing.id },
+        data: { voteType, updatedAt: now },
+      }),
+      prisma.post.update({
+        where: { id: postId },
+        data: {
+          capCount: { increment: adj.capDelta },
+          factsCount: { increment: adj.factsDelta },
+          updatedAt: now,
+        },
+      }),
+    ]);
   }
-
-  await prisma.$transaction([
-    prisma.vote.update({
-      where: { id: existing.id },
-      data: { voteType, updatedAt: now },
-    }),
-    prisma.post.update({
-      where: { id: postId },
-      data: {
-        capCount: { increment: existing.voteType === VoteType.CAP ? -1 : 1 },
-        factsCount: { increment: existing.voteType === VoteType.FACTS ? -1 : 1 },
-        updatedAt: now,
-      },
-    }),
-  ]);
 
   await revalidatePostPaths(postId);
   return null;

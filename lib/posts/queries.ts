@@ -39,6 +39,18 @@ export async function getPostById(id: string) {
   });
 }
 
+/** Public detail: `ACTIVE` or `UNDER_REVIEW` + `PUBLIC` (not `REMOVED`). */
+export async function getPublicPostById(id: string) {
+  return prisma.post.findFirst({
+    where: {
+      id,
+      visibility: Visibility.PUBLIC,
+      status: { in: [ContentStatus.ACTIVE, ContentStatus.UNDER_REVIEW] },
+    },
+    include: postInclude,
+  });
+}
+
 export async function listPostsForCity(cityId: string, limit = 30) {
   return prisma.post.findMany({
     where: { cityId, ...publicLive },

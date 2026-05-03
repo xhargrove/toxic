@@ -2,6 +2,23 @@ import { z } from "zod";
 
 import { ReactionType, VoteType } from "@prisma/client";
 
+/** Prisma `cuid()` ids used as primary keys (typical length 25). */
+export const postIdSchema = z
+  .string()
+  .trim()
+  .min(20)
+  .max(36)
+  .regex(/^[a-z0-9]+$/i);
+
+export function parsePostIdParam(value: unknown): string | null {
+  if (value == null) {
+    return null;
+  }
+  const raw = typeof value === "string" ? value : String(value);
+  const p = postIdSchema.safeParse(raw);
+  return p.success ? p.data : null;
+}
+
 export const commentBodySchema = z.string().trim().min(1).max(8_000);
 
 export const voteTypeSchema = z.nativeEnum(VoteType);

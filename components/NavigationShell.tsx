@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Flame, Home, PlusSquare, Settings, Shield } from "lucide-react";
+import { Bell, Flame, Home, PlusSquare, Settings, Shield } from "lucide-react";
 
 import type { ShellUser } from "@/lib/auth/session";
 import { MobileNav } from "@/components/mobile-nav";
@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: "/home", label: "Home", icon: Home },
   { href: "/trending", label: "Trending", icon: Flame },
   { href: "/create", label: "Create", icon: PlusSquare },
+  { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/settings", label: "Settings", icon: Settings },
   { href: "/admin", label: "Admin", icon: Shield },
 ] as const;
@@ -47,6 +48,10 @@ export function NavigationShell({
           <nav className="hidden flex-1 items-center justify-center gap-4 md:flex">
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
+              const unread =
+                item.href === "/notifications" && user && (user.unreadNotificationCount ?? 0) > 0
+                  ? user.unreadNotificationCount
+                  : null;
               return (
                 <Link
                   key={item.href}
@@ -58,12 +63,17 @@ export function NavigationShell({
                 >
                   <Icon className="size-4" />
                   {item.label}
+                  {unread != null ? (
+                    <span className="bg-primary text-primary-foreground ml-0.5 min-w-[1.25rem] rounded-full px-1 text-center text-[10px] font-medium tabular-nums leading-tight">
+                      {unread > 99 ? "99+" : unread}
+                    </span>
+                  ) : null}
                 </Link>
               );
             })}
           </nav>
           <div className="flex items-center gap-2 text-sm md:gap-3">
-            <MobileNav />
+            <MobileNav unreadNotificationCount={user?.unreadNotificationCount} />
             {user ? (
               <>
                 <span className="text-muted-foreground hidden max-w-[12rem] truncate text-xs lg:inline">

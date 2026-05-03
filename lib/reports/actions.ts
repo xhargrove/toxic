@@ -3,11 +3,14 @@
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 
-import { ContentStatus, ReportStatus } from "@prisma/client";
+import { ContentStatus, Prisma, ReportStatus } from "@prisma/client";
 
 import { requireCompleteProfile } from "@/lib/auth/onboarding";
+import { getPostTargetForReport } from "@/lib/interactions/post-for-actions";
+import { notifyPostUnderReview } from "@/lib/notifications/create";
 import { prisma } from "@/lib/db/prisma";
-import { reportPostSchema } from "@/lib/validation/interactions";
+import { shouldEscalatePostToReview } from "@/lib/reports/threshold-logic";
+import { parsePostIdParam, reportPostSchema } from "@/lib/validation/interactions";
 
 export type ReportPostState = { error?: string; ok?: boolean } | null;
 
@@ -33,9 +36,10 @@ async function revalidatePostPaths(postId: string) {
 }
 
 export async function reportPostAction(_prev: ReportPostState, formData: FormData): Promise<ReportPostState> {
-  const postIdRaw = formData.get("postId");
-  const postId = typeof postIdRaw === "string" ? postIdRaw : "";
-  const dbUser = await requireCompleteProfile(`/post/${postId || "unknown"}`);
+  const postId = parsePostIdParam(formData.get("postId"));
+  if (!postId) {
+    return { error: "Invalid or missing post." };
+  }
 
   const parsed = reportPostSchema.safeParse({
     reason: formData.get("reason"),
@@ -45,49 +49,43 @@ export async function reportPostAction(_prev: ReportPostState, formData: FormDat
     return { error: parsed.error.issues[0]?.message ?? "Invalid report." };
   }
 
-  if (!postId) {
-    return { error: "Missing post." };
-  }
+  const dbUser = await requireCompleteProfile(`/post/${postId}`);
 
-  const post = await prisma.post.findFirst({
-    where: {
-      id: postId,
-      status: { in: [ContentStatus.ACTIVE, ContentStatus.UNDER_REVIEW] },
-    },
-    select: { id: true, status: true },
-  });
+  const post = await getPostTargetForReport(postId);
   if (!post) {
     return { error: "This post cannot be reported." };
   }
 
-  const duplicateOpen = await prisma.report.findFirst({
-    where: {
-      reporterId: dbUser.id,
-      postId,
-      status: ReportStatus.OPEN,
-    },
-    select: { id: true },
-  });
-  if (duplicateOpen) {
-    return { error: "You already have an open report for this post." };
+  try {
+    await prisma.report.create({
+      data: {
+        id: randomUUID(),
+        reporterId: dbUser.id,
+        postId,
+        reason: parsed.data.reason,
+        details: parsed.data.details ?? null,
+        status: ReportStatus.OPEN,
+      },
+    });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return { error: "You already have an open report for this post." };
+    }
+    throw e;
   }
-
-  await prisma.report.create({
-    data: {
-      id: randomUUID(),
-      reporterId: dbUser.id,
-      postId,
-      reason: parsed.data.reason,
-      details: parsed.data.details ?? null,
-      status: ReportStatus.OPEN,
-    },
-  });
 
   const openCount = await prisma.report.count({
     where: { postId, status: ReportStatus.OPEN },
   });
 
-  if (post.status === ContentStatus.ACTIVE && openCount >= reportReviewThreshold()) {
+  const threshold = reportReviewThreshold();
+  if (
+    shouldEscalatePostToReview({
+      postStatus: post.status,
+      openReportCount: openCount,
+      threshold,
+    })
+  ) {
     await prisma.post.update({
       where: { id: postId },
       data: {
@@ -95,6 +93,13 @@ export async function reportPostAction(_prev: ReportPostState, formData: FormDat
         updatedAt: new Date(),
       },
     });
+
+    await notifyPostUnderReview({
+      authorUserId: post.authorId,
+      postId,
+    });
+
+    revalidatePath("/notifications");
   }
 
   await revalidatePostPaths(postId);

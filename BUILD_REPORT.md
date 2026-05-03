@@ -96,3 +96,7 @@ Stub: `npm test` exits 0 with message (no unit suite yet).
 ## 11. Exact next step
 
 **Seed or verify** at least one **`Category`** (active) and one **`City`** (`slug` users will type on `/create`), then run **`npm run dev`** and complete the **`docs/VERIFICATION.md`** smoke checklist.
+
+## 12. Post interactions QA (May 2026)
+
+**GO** — Server actions consolidated behind **`getActivePostForMutations`** / **`getPostTargetForReport`**, **`parsePostIdParam`**, pure **`voteCounterAdjustments`** + **`shouldEscalatePostToReview`**, unit tests via **`npm test`** (`node --import tsx --test`). Feed cards wire **Report** + **Sign in to interact**; detail **`#report`** anchor. See **`docs/POST_INTERACTIONS.md`**.
