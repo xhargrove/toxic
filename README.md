@@ -76,6 +76,7 @@ Work from the **app root** (the folder that contains `package.json` and `prisma/
 - **`docs/DATA_MODEL.md`** — Prisma / env strategy  
 - **`docs/SEED.md`** — default Category/City seed  
 - **`docs/FEED_CREATE_FLOW.md`** — posts & feeds  
+- **`docs/POST_INTERACTIONS.md`** — comments, votes, reactions, reports  
 - **`docs/PROFILE_CITY_PAGES.md`** — profile & city  
 - **`docs/ADMIN_MODERATION.md`** — roles & moderation  
 - **`docs/CROSS_CUTTING.md`** — middleware/proxy, CI  

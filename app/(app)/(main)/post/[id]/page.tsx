@@ -1,7 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { CommentForm } from "@/components/comments/comment-form";
+import { CommentList } from "@/components/comments/comment-list";
+import { PostCardActions } from "@/components/posts/post-card-actions";
+import { PostReportForm } from "@/components/posts/post-report-form";
+import { findAppUserBySupabaseId } from "@/lib/db/app-user";
+import { listActiveCommentsForPost } from "@/lib/comments/queries";
+import { getOptionalAuthUser } from "@/lib/auth/session";
 import { getPostById } from "@/lib/posts/queries";
+import { getViewerInteractionsForPosts } from "@/lib/posts/viewer-state";
 
 interface PostPageProps {
   params: Promise<{ id: string }>;
@@ -13,6 +21,18 @@ export default async function PostPage({ params }: PostPageProps) {
 
   if (!post) {
     notFound();
+  }
+
+  const comments = await listActiveCommentsForPost(id);
+
+  const auth = await getOptionalAuthUser();
+  let viewer = null;
+  if (auth?.id) {
+    const userRow = await findAppUserBySupabaseId(auth.id);
+    if (userRow) {
+      const map = await getViewerInteractionsForPosts(userRow.id, [id]);
+      viewer = map[id] ?? null;
+    }
   }
 
   return (
@@ -31,9 +51,28 @@ export default async function PostPage({ params }: PostPageProps) {
         </Link>{" "}
         · {new Date(post.createdAt).toLocaleString()}
       </p>
-      <div className="prose prose-neutral dark:prose-invert max-w-none whitespace-pre-wrap">
-        {post.body}
-      </div>
+      <div className="prose prose-neutral dark:prose-invert max-w-none whitespace-pre-wrap">{post.body}</div>
+
+      <PostCardActions
+        postId={post.id}
+        counts={{
+          reactionCount: post.reactionCount,
+          capCount: post.capCount,
+          factsCount: post.factsCount,
+          commentCount: post.commentCount,
+        }}
+        viewer={viewer}
+        variant="detail"
+      />
+
+      <section>
+        <h2 className="text-lg font-semibold tracking-tight">Comments</h2>
+        <CommentList comments={comments} />
+      </section>
+
+      <CommentForm postId={post.id} />
+
+      <PostReportForm postId={post.id} />
     </article>
   );
 }
